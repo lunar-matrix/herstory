@@ -1,0 +1,189 @@
+:root 
+/* 强制全局使用宋体/衬线体 */
+body, h1, h2, h3, h4, h5, h6, p, span, div, input, textarea, button, select, a {
+  font-family: "Noto Serif SC", "SimSun", "Songti SC", "STSong", serif !important;
+}
+ {
+  --primary: #8e44ad;
+  --primary-dark: #2c003e;
+  --primary-light: #f3e5f5;
+  --accent-gold: #d4af37;
+  --accent-crimson: #c0392b;
+  --wiki-highlight: #fef3c7;
+  --font-zh: "Noto Serif SC", serif;
+}
+
+body {
+  font-family: var(--font-zh);
+  user-select: none;
+  -webkit-user-select: none;
+  background-color: #fcfaff;
+  letter-spacing: 0.015em;
+}
+
+/* Security Protection Overlay */
+.security-overlay {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(142, 68, 173, 0.05),
+    rgba(142, 68, 173, 0.05) 10px,
+    rgba(255, 255, 255, 0) 10px,
+    rgba(255, 255, 255, 0) 20px
+  );
+}
+
+@media print {
+  body {
+    display: none !important;
+  }
+}
+
+/* Typography Polish */
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.02em;
+}
+
+.prose-content {
+  line-height: 1.85;
+  text-align: justify;
+  color: #4a5568;
+  font-weight: 300;
+}
+
+.nav-sort {
+  font-size: 0.7rem;
+  color: #a0aec0;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.15em;
+  position: relative;
+  padding-bottom: 8px;
+  font-weight: 600;
+}
+
+.nav-sort.active {
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
+.nav-sort.active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--primary);
+}
+
+/* Status Badges */
+.status-tag {
+  font-size: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.tag-spark {
+  background: #f7fafc;
+  color: #718096;
+  border: 1px solid #edf2f7;
+}
+.tag-torch {
+  background: #fffaf0;
+  color: #dd6b20;
+  box-shadow: 0 0 15px rgba(237, 137, 54, 0.1);
+  border: 1px solid #feebc8;
+}
+.tag-galaxy {
+  background: linear-gradient(135deg, #1a0124 0%, #6b21a8 100%);
+  color: white;
+  box-shadow: 0 4px 20px rgba(107, 33, 168, 0.4);
+  animation: galaxy-shimmer 6s infinite ease-in-out;
+}
+
+/* Self-destruct Tag */
+.burn-tag {
+  animation: burn-flicker 2s infinite ease-in-out;
+}
+
+@keyframes burn-flicker {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(0.98);
+    background-color: #4c1d95;
+  }
+}
+
+.wiki-highlight {
+  background-color: var(--wiki-highlight);
+  padding: 0 2px;
+  border-radius: 2px;
+  transition: all 0.2s;
+  cursor: pointer;
+  border-bottom: 1px dashed #fbbf24;
+}
+
+.wiki-highlight:hover {
+  background-color: #fde68a;
+}
+
+@keyframes galaxy-shimmer {
+  0% {
+    filter: contrast(1.1) brightness(1);
+  }
+  50% {
+    filter: contrast(1.2) brightness(1.2) hue-rotate(15deg);
+  }
+  100% {
+    filter: contrast(1.1) brightness(1);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e9d5ff;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8e44ad;
+}
+
+.urgent-glow {
+  animation: beacon 3s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes beacon {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.05;
+  }
+  50% {
+    transform: scale(1.8);
+    opacity: 0.25;
+  }
+}
+
+/* Auth Modal Specifics */
+.gender-option {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.gender-option:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+}

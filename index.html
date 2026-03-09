@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HERSTORY | 她的故事，由她书写</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- 这里就是连接 Supabase 的关键管道 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="bg-[#fcfaff] text-[#2c003e] antialiased overflow-x-hidden">
+    <div id="app" class="min-h-screen flex flex-col">
+      <header
+        id="navbar"
+        class="fixed top-0 w-full z-50 bg-[#fcfaff]/80 backdrop-blur-md border-b border-purple-100 px-6 py-4 flex items-center justify-between"
+      >
+        <div id="logo-container" class="cursor-pointer"></div>
+        <nav
+          id="main-nav"
+          class="hidden md:flex space-x-8 text-sm font-medium tracking-widest uppercase"
+        ></nav>
+        <div id="user-actions" class="flex items-center space-x-4">
+          <button
+            id="btn-register"
+            class="text-xs border border-purple-300 px-4 py-2 rounded-full hover:bg-purple-50 transition-all"
+          >
+            加入我们 JOIN
+          </button>
+        </div>
+      </header>
+
+      <main class="mt-24 flex-grow px-6 max-w-7xl mx-auto w-full">
+        <div class="flex items-center justify-between mb-12">
+          <div class="flex space-x-6 border-b border-purple-100 pb-2">
+            <button class="nav-sort active" data-sort="latest">
+              最新 LATEST
+            </button>
+            <button class="nav-sort" data-sort="hottest">最热 HOTTEST</button>
+          </div>
+          <div class="text-[10px] text-purple-400 tracking-tighter italic">
+            CREDIT-BASED COMMUNITY ECOSYSTEM
+          </div>
+        </div>
+        <div
+          id="post-feed"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20"
+        ></div>
+      </main>
+
+      <!-- 防截图水印层 -->
+      <div
+        class="security-overlay opacity-5 pointer-events-none fixed inset-0 z-[100] flex items-center justify-center select-none rotate-12"
+      >
+        <span class="text-8xl font-bold text-purple-900">Making Herstory</span>
+        >
+      </div>
+    </div>
+    <div id="modal-root"></div>
+    <!-- 必须写 type="module" -->
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
