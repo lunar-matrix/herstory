@@ -122,7 +122,3 @@ export const PostCard = (post, currentUser = {}) => {
       </article>
       `;
 };
-
-      `;
-};
-
