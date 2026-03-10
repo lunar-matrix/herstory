@@ -5,7 +5,7 @@ export const PostCard = (post, currentUser = {}) => {
   else if (score > 100) status = "Torch";
 
   const statusClass = `tag-${status.toLowerCase()}`;
-  const isWikiSection = ["史书记载", "耻辱柱", "辟谣专区", "转载图文"].includes(
+  const isWikiSection = ["史书记载", "辟谣专区", "转载图文"].includes(
     post.category
   );
 
@@ -49,7 +49,7 @@ export const PostCard = (post, currentUser = {}) => {
                   }
                   ${
                     post.audit_status === "rejected"
-                      ? '<span class="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded">不通过，请修改</span>'
+                      ? '<span class="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded">未通过，请修改</span>'
                       : ""
                   }
                   <span class="text-[10px] text-gray-300 font-mono tracking-widest uppercase">ID.${post.id.slice(
@@ -122,3 +122,7 @@ export const PostCard = (post, currentUser = {}) => {
       </article>
       `;
 };
+
+      `;
+};
+
