@@ -14,7 +14,6 @@ const SECTION_MAP = {
   ORIGINAL: "原创文章",
   CURATED: "转载图文",
   "HER-HISTORY": "史书记载",
-  SHAME: "耻辱柱",
   "FACT-CHECK": "辟谣专区",
   SANCTUARY: "树洞与求助",
 };
@@ -646,12 +645,9 @@ class App {
     const isAuthor = this.currentUser && this.currentUser.id === post.author.id;
     const isAdmin = this.currentUser && this.currentUser.is_admin;
     const canDelete = isAuthor || isAdmin;
-    const isPublicWiki = [
-      "转载图文",
-      "史书记载",
-      "耻辱柱",
-      "辟谣专区",
-    ].includes(post.category);
+    const isPublicWiki = ["转载图文", "史书记载", "辟谣专区"].includes(
+      post.category
+    );
     const canEdit = isAuthor || (isAdmin && isPublicWiki);
 
     // 获取评论
@@ -758,10 +754,19 @@ class App {
                       post.excerpt
                     }</div>
 
-                    <div class="flex justify-end mb-8 space-x-3">
-                        ${editBtnHtml}
-                        ${deleteBtnHtml}
+                    <div class="flex justify-between items-center mb-8 border-t border-purple-50 pt-4">
+                    <!-- 左侧：举报按钮 -->
+                    <button id="report-post-btn" class="text-xs text-red-400 hover:text-red-600 flex items-center transition-colors group">
+                      <i data-lucide="flag" class="w-4 h-4 mr-1 group-hover:animate-pulse"></i> 举报违规内容
+                    </button>
+                    
+                    <!-- 右侧：原有的编辑和删除按钮 -->
+                    <div class="flex space-x-3">
+                      ${editBtnHtml}
+                      ${deleteBtnHtml}
                     </div>
+                  </div>
+                  
 
                     <div class="mt-4 pt-8 border-t-2 border-dashed border-purple-100">
                         <h3 class="text-lg font-bold text-purple-900 mb-4 flex items-center"><i data-lucide="message-square" class="w-5 h-5 mr-2"></i>回声墙 (${
@@ -922,6 +927,62 @@ class App {
         }
       };
     }
+    // === 举报逻辑开始 ===
+    const reportBtn = modal.querySelector("#report-post-btn");
+    if (reportBtn) {
+      reportBtn.onclick = async () => {
+        if (!this.currentUser) return alert("请先建立身份后再进行举报。");
+
+        if (confirm("确定要举报这篇内容违规吗？\n恶意举报将被限制访问权限。")) {
+          reportBtn.innerText = "提交中...";
+          reportBtn.disabled = true;
+
+          try {
+            // 1. 获取当前举报数
+            const { data: currentPost } = await supabase
+              .from("contents")
+              .select("report_count")
+              .eq("id", post.id)
+              .single();
+
+            const newReportCount = (currentPost?.report_count || 0) + 1;
+            let updateData = { report_count: newReportCount };
+
+            // 2. 举报阶梯逻辑
+            if (newReportCount >= 10) {
+              updateData.is_deleted = true; // 10次直接下架
+            } else {
+              updateData.audit_status = "pending"; // 1次及以上进入待审核
+            }
+
+            // 3. 更新数据库
+            const { error: updateErr } = await supabase
+              .from("contents")
+              .update(updateData)
+              .eq("id", post.id);
+
+            if (updateErr) throw updateErr;
+
+            alert(
+              newReportCount >= 10
+                ? "该内容已被群众力量下架。"
+                : "已提交审核，管理员将尽快处理。"
+            );
+            root.removeChild(modal); // 关闭弹窗
+            await this.loadPosts(); // 重新加载数据
+            this.renderFeed(
+              document.querySelector(".nav-sort.active")?.dataset.sort ||
+                "latest"
+            );
+          } catch (err) {
+            alert("操作失败：" + err.message);
+            reportBtn.innerText = "举报违规";
+            reportBtn.disabled = false;
+          }
+        }
+      };
+    }
+    // === 举报逻辑结束 ===
   }
 
   async showPostModal() {
@@ -939,7 +1000,6 @@ class App {
                             <option value="原创文章">Original 原创文章</option>
                             <option value="转载图文">Curated 转载图文</option>
                             <option value="史书记载">Her-History 史书记载</option>
-                            <option value="耻辱柱">Shame 耻辱柱</option>
                             <option value="辟谣专区">Fact-Check 辟谣专区</option>
                             <option value="树洞与求助">Sanctuary 树洞与求助</option>
                         </select>
@@ -992,13 +1052,12 @@ class App {
     const sectionSelect = modal.querySelector("#post-section");
     const burnSettings = modal.querySelector("#burn-settings");
     const sourceContainer = modal.querySelector("#source-container"); // 【新增】获取出处容器
-    const sourceSections = ["转载图文", "史书记载", "耻辱柱", "辟谣专区"]; // 【新增】需要显示出处的板块
+    const sourceSections = ["转载图文", "史书记载", "辟谣专区"]; // 【新增】需要显示出处的板块
 
     const validSections = [
       "原创文章",
       "转载图文",
       "史书记载",
-      "耻辱柱",
       "辟谣专区",
       "树洞与求助",
     ];
@@ -1436,39 +1495,77 @@ class App {
     const modal = document.createElement("div");
     modal.className =
       "fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6";
+
     modal.innerHTML = `
-            <div class="absolute inset-0 bg-[#2c003e]/80 backdrop-blur-md"></div>
-            <div class="relative bg-white w-full max-w-xl rounded-3xl p-8 shadow-2xl max-h-[90vh] flex flex-col animate-in zoom-in duration-300">
-                <button id="close-legal" class="absolute top-6 right-6 text-gray-400 hover:text-purple-600 transition-colors">
-                    <i data-lucide="x" class="w-6 h-6"></i>
+    <div class="absolute inset-0 bg-[#2c003e]/80 backdrop-blur-md"></div>
+    <div class="relative bg-white w-full max-w-2xl rounded-3xl p-8 shadow-2xl max-h-[90vh] flex flex-col animate-in zoom-in duration-300">
+        <button id="close-legal" class="absolute top-6 right-6 text-gray-400 hover:text-purple-600 transition-colors">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        <h3 class="text-2xl font-bold text-purple-900 mb-6 text-center tracking-widest font-serif">用户协议与隐私政策</h3>
+        
+        <div class="overflow-y-auto custom-scrollbar pr-4 space-y-6 text-sm text-gray-700 leading-relaxed mb-6">
+            <!-- 1. 用户协议 -->
+            <section>
+                <h4 class="text-purple-900 font-bold border-b border-purple-50 pb-1 mb-2">一、用户行为规范与协议</h4>
+                <p>1. 禁止发布仇恨、对立言论、隐私信息等违规内容，发布内容需遵守相关法律法规；</p>
+                <p>2. 不得利用本站从事任何违法犯罪活动。本网站为女性公益互助记录平台，不对内容的绝对真实性承担法律责任；</p>
+                <p>3. 【违规处置】帖子被举报将进入待审核状态，被10个及以上用户举报将直接删除。管理员有权对违规内容进行修改、删除。</p>
+            </section>
+
+            <!-- 2. 隐私政策 -->
+            <section>
+                <h4 class="text-purple-900 font-bold border-b border-purple-100 pb-1 mb-2">二、隐私政策与数据安全</h4>
+                <p>本网站通过 <strong>Supabase</strong> 数据库收集必要信息，未接入任何第三方统计工具。</p>
+                <ul class="list-disc ml-5 space-y-1">
+                    <li>收集范围：用户邮箱（仅用于鉴权）、性别信息、发布内容及举报记录；</li>
+                    <li>用途：仅用于网站基本功能实现与内容合规审核，不用于商业推广或第三方共享；</li>
+                    <li>存储安全：数据存储于 Supabase 境外服务器，已开启传输加密与存储加密，严格限制访问权限。</li>
+                </ul>
+            </section>
+
+            <!-- 3. 知识产权 -->
+            <section>
+                <h4 class="text-purple-900 font-bold border-b border-purple-100 pb-1 mb-2">三、知识产权声明</h4>
+                <p>1. <strong>原创内容：</strong>用户保留完整著作权，并授予平台非独家、免费、全球范围内的展示与存储权，平台不用于商业盈利；</p>
+                <p>2. <strong>转载内容：</strong>用户发布转载内容时需获得原作者授权。若发生侵权，平台不承担侵权责任并保留删除权力，侵权责任由发布用户自行承担。</p>
+            </section>
+
+            <!-- 4. 境外服务声明 -->
+            <section class="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                <p class="text-[12px] text-purple-800">
+                    <i data-lucide="shield-alert" class="inline-block w-3 h-3 mr-1"></i>
+                    <strong>特别提醒：</strong>本网站当前部署于境外 Netlify ，仅面向境外用户提供服务。中国境内用户请谨慎访问并严格遵守当地法律法规。
+                </p>
+            </section>
+        </div>
+        
+        <div class="flex justify-between items-center border-t border-purple-100 pt-6">
+            <button id="legal-decline" class="text-gray-400 font-bold hover:text-gray-600 text-sm transition-colors">拒绝并离开</button>
+            <div class="flex space-x-3">
+                <button id="legal-agree" class="bg-purple-900 text-white px-10 py-3 rounded-full font-bold tracking-widest hover:bg-purple-800 transition-all shadow-lg hover:shadow-purple-900/30">
+                    同意并继续 AGREE
                 </button>
-                <h3 class="text-2xl font-bold text-purple-900 mb-6 text-center tracking-widest font-serif">用户协议与隐私政策</h3>
-                
-                <div class="overflow-y-auto custom-scrollbar pr-4 space-y-4 text-sm text-gray-700 leading-relaxed mb-6">
-                    <p><strong class="text-purple-900 font-bold">1. 注册与使用规则</strong><br/>访问 HERSTORY 社区需遵守合法合规原则，严禁发布违法、色情、暴力、歧视及破坏互助氛围的内容，不得侵犯他人权益。</p>
-                    <p><strong class="text-purple-900 font-bold">2. 隐私与数据保护</strong><br/>本网站仅收集您的邮箱及性别信息，绝不向第三方泄露。您发布的内容（含匿名）版权归您所有，但平台拥有在社区内展示、存储的权利。</p>
-                    <p><strong class="text-purple-900 font-bold">3. 责任与免责声明</strong><br/>本网站为女性公益互助记录平台，用户生成内容仅代表个人观点。本网站不对内容的绝对真实性承担法律责任。发现造谣等违规内容，高信用用户可纠正，管理员有权封禁。</p>
-                    <p><strong class="text-purple-900 font-bold">4. 第三方服务接入</strong><br/>为保障访问速度与安全，本站部署于 Netlify，并接入百度统计以分析页面基础流量趋势，不追踪个人身份隐私。</p>
-                </div>
-                
-                <div class="flex justify-between items-center border-t border-purple-100 pt-6">
-                    <button id="legal-decline" class="text-gray-400 font-bold hover:text-gray-600 text-sm transition-colors">拒绝并离开</button>
-                    <button id="legal-agree" class="bg-purple-900 text-white px-8 py-3 rounded-full font-bold tracking-widest hover:bg-purple-800 transition-all shadow-lg hover:shadow-purple-900/30">
-                        同意并继续 AGREE
-                    </button>
-                </div>
             </div>
-        `;
+        </div>
+    </div>
+  `;
+
     root.appendChild(modal);
     if (window.lucide) window.lucide.createIcons();
 
-    // 绑定关闭和同意事件
     const cleanup = () => root.removeChild(modal);
+
+    // 逻辑处理
     modal.querySelector("#close-legal").onclick = cleanup;
-    modal.querySelector("#legal-decline").onclick = cleanup;
+    modal.querySelector("#legal-decline").onclick = () => {
+      cleanup();
+      window.location.href = "https://www.google.com"; // 拒绝后跳转到中立页面
+    };
+
     modal.querySelector("#legal-agree").onclick = () => {
       cleanup();
-      if (onAgreeCallback) onAgreeCallback(); // 同意后，执行唤起登录框的指令
+      if (onAgreeCallback) onAgreeCallback();
     };
   }
 } // <-- 【极其关键】：这是整个 App 类的结束括号！
