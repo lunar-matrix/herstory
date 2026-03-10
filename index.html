@@ -39,6 +39,8 @@
       </header>
 
       <main class="mt-24 flex-grow px-6 max-w-7xl mx-auto w-full">
+        <!-- 【已删除】原来的顶部合规提示 -->
+
         <div class="flex items-center justify-between mb-12">
           <div class="flex space-x-6 border-b border-purple-100 pb-2">
             <button class="nav-sort active" data-sort="latest">
@@ -62,6 +64,24 @@
       >
         <span class="text-8xl font-bold text-purple-900">Making Herstory</span>
         >
+      </div>
+
+      <!-- 【新增】底部固定合规提示栏（核心修改） -->
+      <div
+        class="sticky bottom-0 z-40 bg-purple-50/95 backdrop-blur-sm border-t border-purple-200 py-2 px-4"
+      >
+        <div
+          class="max-w-7xl mx-auto flex items-center justify-center space-x-2 text-xs text-purple-900"
+        >
+          <i
+            data-lucide="info"
+            class="w-3.5 h-3.5 text-purple-600 flex-shrink-0"
+          ></i>
+          <span
+            ><strong>合规提示：</strong
+            >本网站当前部署于境外服务器，仅面向境外用户提供服务，中国境内用户请谨慎访问。</span
+          >
+        </div>
       </div>
     </div>
     <div id="modal-root"></div>
