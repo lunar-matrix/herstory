@@ -3,7 +3,6 @@ export const Navigation = (containerId) => {
     { name: "原创", en: "Original" },
     { name: "转载", en: "Curated" },
     { name: "史书", en: "Her-History" },
-    { name: "耻辱柱", en: "Shame" },
     { name: "辟谣", en: "Fact-Check" },
     { name: "树洞", en: "Sanctuary" },
   ];
