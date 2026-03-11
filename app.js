@@ -402,10 +402,19 @@ class App {
         btn.onclick = async () => {
           const uid = btn.dataset.uid;
 
-          // 【新增】神级密钥防误伤：普通管理员不能制裁超管
+          // 【修改】管理员制裁阶级逻辑：比较信用分
           const targetUser = userList.find((user) => user.id === uid);
-          if (targetUser.is_super_admin && !this.currentUser.is_super_admin) {
-            return alert("越权操作：您无法制裁最高管理员！");
+          if (targetUser.id === this.currentUser.id) {
+            return alert("无效操作：您不能对自己执行制裁！");
+          }
+          if (targetUser.is_admin) {
+            const myCredit = this.currentUser.credit || 0;
+            const targetCredit = targetUser.credit_score || 0;
+            if (myCredit <= targetCredit) {
+              return alert(
+                "越权操作：同为核心管理，您只能制裁信用分低于您的管理员！"
+              );
+            }
           }
 
           const select = listDiv.querySelector(
@@ -579,7 +588,7 @@ class App {
                 <div class="text-xs text-purple-400 font-mono tracking-widest mb-1">Lv ${newLevel} Architect</div>
                 
                 <div class="text-[10px] text-purple-600 bg-purple-50 border border-purple-100 px-3 py-1 rounded-full mb-6">
-                    权限：${privilegeText}
+                    特权：${privilegeText}
                 </div>
                 
                 <div class="w-full bg-purple-50 rounded-2xl p-4 mb-6 relative overflow-hidden">
@@ -660,25 +669,38 @@ class App {
     const commentsHtml =
       comments && comments.length > 0
         ? comments
-            .map(
-              (c) => `
-            <div class="border-b border-purple-50 py-4">
-                <div class="flex items-center space-x-2 mb-2">
-                    <span class="text-xs font-bold text-purple-900">${
-                      c.author.username
-                    }</span>
-                    <span class="text-[9px] text-purple-400 border border-purple-200 px-1 rounded">Lv${
-                      parseInt((c.author.level || "").replace(/[^0-9]/g, "")) ||
-                      1
-                    }</span>
-                    <span class="text-[10px] text-gray-400">${new Date(
-                      c.created_at
-                    ).toLocaleDateString()}</span>
+            .map((c) => {
+              // 核心判断：当前登录用户是不是这条评论的作者？或者是管理员？
+              const canDeleteComment =
+                this.currentUser &&
+                (this.currentUser.id === c.user_id ||
+                  this.currentUser.is_admin);
+
+              // 如果有权限，就渲染删除按钮；否则为空
+              const deleteBtnHtml = canDeleteComment
+                ? `<button class="text-[10px] text-red-400 hover:text-red-600 ml-auto transition-colors delete-comment-btn" data-cid="${c.id}">删除评论</button>`
+                : "";
+
+              return `
+                <div class="border-b border-purple-50 py-4 group">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="text-xs font-bold text-purple-900">${
+                          c.author.username
+                        }</span>
+                        <span class="text-[9px] text-purple-400 border border-purple-200 px-1 rounded">Lv${
+                          parseInt(
+                            (c.author.level || "").replace(/[^0-9]/g, "")
+                          ) || 1
+                        }</span>
+                        <span class="text-[10px] text-gray-400">${new Date(
+                          c.created_at
+                        ).toLocaleDateString()}</span>
+                        ${deleteBtnHtml}
+                    </div>
+                    <p class="text-sm text-gray-700">${c.content}</p>
                 </div>
-                <p class="text-sm text-gray-700">${c.content}</p>
-            </div>
-        `
-            )
+              `;
+            })
             .join("")
         : '<div class="text-xs text-gray-400 italic py-4">暂无评论，来留下第一句话吧。</div>';
 
@@ -704,9 +726,12 @@ class App {
       : "";
 
     // 只有管理员能看到底部巨大的审核操作面板
-    const adminAuditHtml = isAdmin
-      ? `
+    // 【修改】只有当是管理员，且不是该帖子的作者时，才显示审核面板
+    const adminAuditHtml =
+      isAdmin && !isAuthor
+        ? `
         <div class="mt-8 pt-6 border-t-2 border-purple-100 flex justify-center space-x-6 pb-2">
+
             <button id="audit-approve-btn" class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-md transition-colors flex items-center">
                 <i data-lucide="check-circle" class="w-5 h-5 mr-2"></i> 审核通过
             </button>
@@ -715,7 +740,7 @@ class App {
             </button>
         </div>
         `
-      : "";
+        : "";
 
     modal.innerHTML = `
             <div class="absolute inset-0 bg-[#2c003e]/60 backdrop-blur-sm detail-overlay"></div>
@@ -790,6 +815,27 @@ class App {
       root.removeChild(modal);
     modal.querySelector(".detail-overlay").onclick = () =>
       root.removeChild(modal);
+    // === 绑定删除评论的点击事件 ===
+    modal.querySelectorAll(".delete-comment-btn").forEach((btn) => {
+      btn.onclick = async (e) => {
+        if (!confirm("确定要永久删除这条回声吗？")) return;
+        const cid = e.target.getAttribute("data-cid");
+        e.target.innerText = "删除中...";
+
+        const { error } = await supabase
+          .from("comments")
+          .delete()
+          .eq("id", cid);
+        if (!error) {
+          root.removeChild(modal); // 关闭当前详情弹窗
+          this.showPostDetail(post); // 重新打开（实现无缝刷新评论区）
+        } else {
+          alert("删除评论失败：" + error.message);
+          e.target.innerText = "删除评论";
+        }
+      };
+    });
+    // === 删除评论事件结束 ===
 
     // 绑定审核按钮事件
     if (isAdmin) {
@@ -1235,15 +1281,13 @@ class App {
         "你的价值不取决于别人的看法。",
         "我值得一个美好的春天，我不亏欠任何人。——伍尔夫",
         "每次一个女性为自己站出来，她就是在为所有女性发声。",
-        "独立而自由的灵魂，才是幸福之源。——伍尔夫《一间自己的房间》",
-        "她没在等骑士，她在寻一把利剑。——Atticus《Love Her Wild:Poems》",
+        "独立而自由的灵魂，才是幸福之源。",
+        "她没在等骑士，她在寻一把利剑。",
         "女性主义教会我重要的两件事：首先，要接受自己很多问题不是自己的错，而是很多人共同面临的困境。其次，不要加盟对手去进一步伤害自己。——戴锦华",
         "祝你强壮，祝你自由，祝你铮铮，祝你昂扬，祝你扎根大地，挺直脊梁。",
         "你可以用言语射杀我，你可以用目光切割我，你可以用仇恨扼杀我，但我仍将如空气，升腾而起。——玛雅·安吉洛《我仍将奋起》",
         "我生来就是高山而非溪流，我欲于群峰之巅俯视平庸的沟壑。我生来就是人杰而非草芥，我站在伟人之肩藐视卑微的懦夫。——张桂梅",
         "一个能够升起月亮的身体，必然驮住了无数次日落。——余秀华《荒漠》",
-        "大雨向下，女人向上。",
-        "我变得如此锋利，难道是为了刺穿什么吗？——韩江《素食者》"
       ];
 
       const mainQuote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
@@ -1510,19 +1554,19 @@ class App {
             <!-- 1. 用户协议 -->
             <section>
                 <h4 class="text-purple-900 font-bold border-b border-purple-50 pb-1 mb-2">一、用户行为规范与协议</h4>
-                <p>1. 本《用户协议》是你与 HERSTORY之间关于使用平台服务所订立的契约。你通过注册、登录、发布内容、使用平台功能等方式使用本平台服务，即视为你已阅读、理解并同意本协议所有条款。；</p>
-                <p>2. 不得利用本站从事任何违法犯罪活动（包括但不限于涉及性别对立、仇恨言论、歧视性内容的；泄露他人隐私、个人信息；含有暴力、色情、恐怖主义等违背公序良俗的）。；</p>
+                <p>1. 本《用户协议》是你与 HERSTORY之间关于使用平台服务所订立的契约。你通过注册、登录、发布内容、使用平台功能等方式使用本平台服务，即视为你已阅读、理解并同意本协议所有条款；</p>
+                <p>2. 不得利用本站从事任何违法犯罪活动（包括但不限于涉及仇恨对立言论、歧视性内容；泄露他人隐私、个人信息；含有暴力、色情、恐怖主义等违背公序良俗的活动）；</p>
                 <p>3. 【违规处置】帖子被举报将进入待审核状态，被10个及以上用户举报将直接删除。管理员有权对违规内容进行修改、删除。</p>
             </section>
 
             <!-- 2. 隐私政策 -->
             <section>
                 <h4 class="text-purple-900 font-bold border-b border-purple-100 pb-1 mb-2">二、隐私政策与数据安全</h4>
-                <p>本网站通过 <strong>Supabase</strong> 数据库收集存储注册登录的必要信息，未接入任何第三方统计工具。</p>
+                <p>本网站通过 <strong>Supabase</strong> 数据库收集注册的必要信息，未接入任何第三方统计工具。</p>
                 <ul class="list-disc ml-5 space-y-1">
                     <li>收集范围：用户邮箱、性别信息、发布内容及举报记录；</li>
                     <li>用途：仅用于网站基本功能实现与内容合规审核，不用于商业推广或第三方共享；</li>
-                    <li>存储安全：数据存储于 Supabase 境外服务器，现已开启传输加密与存储加密，严格限制访问权限。</li>
+                    <li>存储安全：数据存储于 Supabase 境外服务器，已开启传输加密与存储加密，严格限制访问权限。</li>
                 </ul>
             </section>
 
@@ -1574,4 +1618,3 @@ class App {
 
 // 【极其关键】：程序的启动入口，没有这句网站就是一片空白
 window.addEventListener("DOMContentLoaded", () => new App());
-
