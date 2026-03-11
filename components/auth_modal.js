@@ -33,7 +33,7 @@ export const AuthModal = (supabase, onLoginSuccess) => {
                                 </div>
                                 <div class="flex flex-col">
                                     <span class="font-bold text-lg">女 WOMAN</span>
-                                    <span class="text-[10px] text-purple-500">第一性：欢迎加入Women的Herstory</span>
+                                    <span class="text-[10px] text-purple-500">欢迎加入Women的Herstory</span>
                                 </div>
                             </label>
                             <label class="relative flex items-center p-4 border border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-all group opacity-60">
@@ -193,3 +193,4 @@ export const AuthModal = (supabase, onLoginSuccess) => {
 
   return { show };
 };
+
