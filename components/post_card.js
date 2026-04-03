@@ -9,6 +9,23 @@ export const PostCard = (post, currentUser = {}) => {
     post.category
   );
 
+  // 【需求5】格式化发布时间
+  const formatTime = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now - d;
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (mins < 1) return "刚刚";
+    if (mins < 60) return `${mins}分钟前`;
+    if (hours < 24) return `${hours}小时前`;
+    if (days < 30) return `${days}天前`;
+    return d.toLocaleDateString("zh-CN");
+  };
+  const timeText = formatTime(post.created_at);
+
   // 处理头像里的文字：如果是男用户，固定显示“男”，否则按等级显示汉字
   const levelMap = ["女", "妇", "媛", "娇", "嫖", "妒", "汝", "好"];
   const authorTitle =
@@ -91,6 +108,7 @@ export const PostCard = (post, currentUser = {}) => {
                       <span class="text-[10px] text-purple-300 font-medium italic">Level ${
                         post.author.level
                       } Architect</span>
+                      ${timeText ? `<span class="text-[9px] text-gray-400 ml-1">${timeText}</span>` : ""}
                   </div>
               </div>
               
