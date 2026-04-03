@@ -13,8 +13,8 @@ const SECTION_MAP = {
   HOTTEST: "最热",
   ORIGINAL: "原创文章",
   CURATED: "转载图文",
-  "HER-HISTORY": "史书记载",
-  "FACT-CHECK": "辟谣专区",
+  HERSTORY: "史书记载",
+  DEBUNK: "辟谣专区",
   SANCTUARY: "树洞与求助",
 };
 
@@ -33,7 +33,34 @@ class App {
     Navigation("main-nav");
     if (window.lucide) window.lucide.createIcons();
 
-    // 【新增】树洞安全区防截图与隐私保护机制
+    // 【需求3】移动端导航事件绑定
+    const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+    const mobileDrawer = document.getElementById("mobile-nav-drawer");
+    const mobileNavClose = document.getElementById("mobile-nav-close");
+    const mobileOverlay = document.getElementById("mobile-nav-overlay");
+    if (mobileMenuBtn && mobileDrawer) {
+      const openDrawer = () => { mobileDrawer.classList.remove("hidden"); if (window.lucide) window.lucide.createIcons(); };
+      const closeDrawer = () => { mobileDrawer.classList.add("hidden"); };
+      mobileMenuBtn.onclick = openDrawer;
+      if (mobileNavClose) mobileNavClose.onclick = closeDrawer;
+      if (mobileOverlay) mobileOverlay.onclick = closeDrawer;
+      document.querySelectorAll(".mobile-nav-link").forEach(link => {
+        link.onclick = (e) => {
+          e.preventDefault();
+          const section = link.dataset.section;
+          if (section === "树洞与求助" && this.currentUser && this.currentUser.gender === "男") {
+            alert("抱歉，树洞为女性专属安全区，男性用户无法进入及查看。");
+            return;
+          }
+          this.currentFilter = section;
+          this.searchQuery = "";
+          this.renderFeed("latest");
+          closeDrawer();
+        };
+      });
+    }
+
+    // 【需求3】树洞安全区防截图与隐私保护机制
     const style = document.createElement("style");
     style.innerHTML = `
         .sanctuary-mode #post-feed { user-select: none; -webkit-user-select: none; }
@@ -243,6 +270,7 @@ class App {
         const authorInfo = p.author || {};
 
         return {
+          created_at: p.created_at,
           id: p.id,
           title: isAnon ? p.title.replace("[匿名] ", "") : p.title,
           excerpt: p.content,
@@ -250,7 +278,7 @@ class App {
           likes: p.like_count || 0,
           dislikes: p.dislike_count || 0,
           muyu_clicks: 0,
-          comments: p.view_count || 0,
+          comments: 0, // 【需求2】先设0，下面批量查真实评论数
           audit_status: p.audit_status,
           user_id: p.user_id,
           author: {
@@ -269,6 +297,23 @@ class App {
       });
     } catch (err) {
       console.error("加载数据失败", err);
+    }
+
+    // 【需求2】批量查询每个帖子的真实评论数
+    try {
+      const postIds = this.posts.map(p => p.id);
+      if (postIds.length > 0) {
+        const { data: commentCounts } = await supabase
+          .from("comments")
+          .select("content_id");
+        if (commentCounts) {
+          const countMap = {};
+          commentCounts.forEach(c => { countMap[c.content_id] = (countMap[c.content_id] || 0) + 1; });
+          this.posts.forEach(p => { p.comments = countMap[p.id] || 0; });
+        }
+      }
+    } catch (err) {
+      console.error("加载评论数失败", err);
     }
   }
 
@@ -725,18 +770,18 @@ class App {
       ? `<button id="delete-post-btn" class="flex items-center space-x-2 px-4 py-2 bg-red-50 text-red-500 hover:bg-red-100 rounded-full text-xs font-bold transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i><span>${deleteText}</span></button>`
       : "";
 
-    // 只有管理员能看到底部巨大的审核操作面板
-    // 【修改】只有当是管理员，且不是该帖子的作者时，才显示审核面板
+    // 【需求7】审核按钮重构：通过在左，拒绝在右，颜色降饱和度，已审核变灰+重新审核按钮
+    const isApproved = post.audit_status === "approved";
     const adminAuditHtml =
       isAdmin && !isAuthor
         ? `
-        <div class="mt-8 pt-6 border-t-2 border-purple-100 flex justify-center space-x-6 pb-2">
-
-            <button id="audit-approve-btn" class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-md transition-colors flex items-center">
-                <i data-lucide="check-circle" class="w-5 h-5 mr-2"></i> 审核通过
+        <div class="mt-8 pt-6 border-t-2 border-purple-100 flex justify-between items-center pb-2">
+            <button id="audit-approve-btn" class="${isApproved ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-green-100 text-green-700 hover:bg-green-200'} px-6 py-3 rounded-full font-bold shadow-sm transition-colors flex items-center text-sm" ${isApproved ? 'disabled' : ''}>
+                <i data-lucide="check-circle" class="w-4 h-4 mr-2"></i> 审核通过
             </button>
-            <button id="audit-reject-btn" class="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-bold shadow-md transition-colors flex items-center">
-                <i data-lucide="x-circle" class="w-5 h-5 mr-2"></i> 拒绝/打回
+            ${isApproved ? '<button id="audit-recheck-btn" class="bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-6 py-3 rounded-full font-bold shadow-sm transition-colors flex items-center text-sm"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> 重新审核</button>' : ''}
+            <button id="audit-reject-btn" class="${isApproved ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-red-100 text-red-700 hover:bg-red-200'} px-6 py-3 rounded-full font-bold shadow-sm transition-colors flex items-center text-sm" ${isApproved ? 'disabled' : ''}>
+                <i data-lucide="x-circle" class="w-4 h-4 mr-2"></i> 拒绝/打回
             </button>
         </div>
         `
@@ -771,7 +816,7 @@ class App {
                             }</div>
                             <div class="text-[10px] text-purple-400 italic">Level ${
                               post.author.level || 1
-                            } Architect</div>
+                            } Architect${post.created_at ? ` · ${new Date(post.created_at).toLocaleDateString("zh-CN")}` : ""}</div>
                         </div>
                     </div>
                     
@@ -841,6 +886,22 @@ class App {
     if (isAdmin) {
       const approveBtn = modal.querySelector("#audit-approve-btn");
       const rejectBtn = modal.querySelector("#audit-reject-btn");
+      const recheckBtn = modal.querySelector("#audit-recheck-btn");
+
+      // 【需求7】重新审核按钮：恢复左右按钮颜色和可点击状态
+      if (recheckBtn) {
+        recheckBtn.onclick = async () => {
+          if (approveBtn) {
+            approveBtn.disabled = false;
+            approveBtn.className = "bg-green-100 text-green-700 hover:bg-green-200 px-6 py-3 rounded-full font-bold shadow-sm transition-colors flex items-center text-sm";
+          }
+          if (rejectBtn) {
+            rejectBtn.disabled = false;
+            rejectBtn.className = "bg-red-100 text-red-700 hover:bg-red-200 px-6 py-3 rounded-full font-bold shadow-sm transition-colors flex items-center text-sm";
+          }
+          recheckBtn.remove();
+        };
+      }
 
       if (approveBtn) {
         approveBtn.onclick = async () => {
@@ -1045,8 +1106,8 @@ class App {
                         <select id="post-section" class="w-full bg-purple-50 border-none p-4 rounded-xl text-purple-900 font-bold outline-none">
                             <option value="原创文章">Original 原创文章</option>
                             <option value="转载图文">Curated 转载图文</option>
-                            <option value="史书记载">Her-History 史书记载</option>
-                            <option value="辟谣专区">Fact-Check 辟谣专区</option>
+                            <option value="史书记载">Herstory 史书记载</option>
+                            <option value="辟谣专区">Debunk 辟谣专区</option>
                             <option value="树洞与求助">Sanctuary 树洞与求助</option>
                         </select>
                     </div>
@@ -1432,40 +1493,51 @@ class App {
           const dbAction = ACTION_MAP[action] || "点赞";
           const weights = this.getInteractionWeights();
 
-          const { data: existing } = await supabase
+          // 【需求2重构】点赞/踩互斥机制
+          // 查询当前用户对此帖的所有互动
+          const { data: allInteractions } = await supabase
             .from("interactions")
             .select("*")
             .eq("user_id", this.currentUser.id)
-            .eq("content_id", post.id)
-            .eq("interaction_type", dbAction)
-            .single();
+            .eq("content_id", post.id);
 
-          if (existing) {
-            await supabase.from("interactions").delete().eq("id", existing.id);
-            post.likes = Math.max(0, post.likes - (existing.weight || 1));
-            el.querySelector("span").innerText = post.likes;
-            await supabase
-              .from("contents")
-              .update({ like_count: post.likes })
-              .eq("id", post.id);
-            el.classList.remove("text-purple-600");
+          const existing = (allInteractions || []).find(i => i.interaction_type === dbAction);
+
+          if (dbAction === "点赞") {
+            // 单击赞：最多1次，再次取消；与踩互斥
+            if (existing) {
+              await supabase.from("interactions").delete().eq("id", existing.id);
+              post.likes = Math.max(0, post.likes - (existing.weight || 1));
+              el.classList.remove("text-purple-600");
+            } else {
+              // 检查是否已踩，若已踩则先取消踩
+              const existingDislike = (allInteractions || []).find(i => i.interaction_type === "踩");
+              if (existingDislike) {
+                await supabase.from("interactions").delete().eq("id", existingDislike.id);
+                post.dislikes = Math.max(0, (post.dislikes || 0) - (existingDislike.weight || 1));
+                const dEl = document.getElementById(`dislike-${post.id}`);
+                if (dEl) { dEl.querySelector("span").innerText = post.dislikes; dEl.classList.remove("text-red-500"); }
+                await supabase.from("contents").update({ dislike_count: post.dislikes }).eq("id", post.id);
+              }
+              await supabase.from("interactions").insert([{ user_id: this.currentUser.id, content_id: post.id, interaction_type: "点赞", weight: weights.like }]);
+              post.likes += weights.like;
+              el.classList.add("text-purple-600");
+            }
           } else {
-            await supabase.from("interactions").insert([
-              {
-                user_id: this.currentUser.id,
-                content_id: post.id,
-                interaction_type: dbAction,
-                weight: weights.like,
-              },
-            ]);
-            post.likes += weights.like;
-            el.querySelector("span").innerText = post.likes;
-            await supabase
-              .from("contents")
-              .update({ like_count: post.likes })
-              .eq("id", post.id);
-            el.classList.add("text-purple-600");
+            // 双击特殊（递笔/抱抱/铭记/拔剑）：每种最多1次
+            if (existing) {
+              await supabase.from("interactions").delete().eq("id", existing.id);
+              post.likes = Math.max(0, post.likes - (existing.weight || 1));
+            } else {
+              // 检查特殊互动总数（不含普通点赞和踩），最多2个特殊
+              const specialCount = (allInteractions || []).filter(i => i.interaction_type !== "点赞" && i.interaction_type !== "踩").length;
+              if (specialCount >= 2) { alert("您对此帖的特殊互动已达上限（2次）"); return; }
+              await supabase.from("interactions").insert([{ user_id: this.currentUser.id, content_id: post.id, interaction_type: dbAction, weight: weights.like }]);
+              post.likes += weights.like;
+            }
           }
+          el.querySelector("span").innerText = post.likes;
+          await supabase.from("contents").update({ like_count: post.likes }).eq("id", post.id);
         });
       }
 
@@ -1477,43 +1549,35 @@ class App {
           if (!this.currentUser) return alert("请先登录才能踩。");
           const weights = this.getInteractionWeights();
 
-          const { data: existing } = await supabase
+          // 【需求2重构】踩：最多1次，与赞互斥
+          const { data: allInteractions } = await supabase
             .from("interactions")
             .select("*")
             .eq("user_id", this.currentUser.id)
-            .eq("content_id", post.id)
-            .eq("interaction_type", "踩")
-            .single();
+            .eq("content_id", post.id);
+
+          const existing = (allInteractions || []).find(i => i.interaction_type === "踩");
 
           if (existing) {
             await supabase.from("interactions").delete().eq("id", existing.id);
-            post.dislikes = Math.max(
-              0,
-              (post.dislikes || 0) - (existing.weight || 1)
-            );
-            dislikeEl.querySelector("span").innerText = post.dislikes;
-            await supabase
-              .from("contents")
-              .update({ dislike_count: post.dislikes })
-              .eq("id", post.id);
+            post.dislikes = Math.max(0, (post.dislikes || 0) - (existing.weight || 1));
             dislikeEl.classList.remove("text-red-500");
           } else {
-            await supabase.from("interactions").insert([
-              {
-                user_id: this.currentUser.id,
-                content_id: post.id,
-                interaction_type: "踩",
-                weight: weights.dislike,
-              },
-            ]);
+            // 先取消普通点赞（互斥）
+            const existingLike = (allInteractions || []).find(i => i.interaction_type === "点赞");
+            if (existingLike) {
+              await supabase.from("interactions").delete().eq("id", existingLike.id);
+              post.likes = Math.max(0, post.likes - (existingLike.weight || 1));
+              const lEl = document.getElementById(`emotion-${post.id}`);
+              if (lEl) { lEl.querySelector("span").innerText = post.likes; lEl.classList.remove("text-purple-600"); }
+              await supabase.from("contents").update({ like_count: post.likes }).eq("id", post.id);
+            }
+            await supabase.from("interactions").insert([{ user_id: this.currentUser.id, content_id: post.id, interaction_type: "踩", weight: weights.dislike }]);
             post.dislikes = (post.dislikes || 0) + weights.dislike;
-            dislikeEl.querySelector("span").innerText = post.dislikes;
-            await supabase
-              .from("contents")
-              .update({ dislike_count: post.dislikes })
-              .eq("id", post.id);
             dislikeEl.classList.add("text-red-500");
           }
+          dislikeEl.querySelector("span").innerText = post.dislikes;
+          await supabase.from("contents").update({ dislike_count: post.dislikes }).eq("id", post.id);
         };
       }
     });
@@ -1534,6 +1598,34 @@ class App {
       );
     }
   } // <-- 【关键】：结束 renderFeed 方法的括号
+
+  // 【需求4】白皮书弹窗
+  showWhitepaperModal() {
+    if (sessionStorage.getItem("whitepaper_shown")) return;
+    sessionStorage.setItem("whitepaper_shown", "1");
+    const root = document.getElementById("modal-root");
+    const modal = document.createElement("div");
+    modal.className = "fixed inset-0 z-[200] flex items-center justify-center p-4";
+    let page = 1;
+    const render = () => {
+      modal.innerHTML = `
+        <div class="absolute inset-0 bg-[#2c003e]/70 backdrop-blur-sm wp-overlay"></div>
+        <div class="relative bg-white rounded-3xl p-6 shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col items-center animate-in zoom-in duration-300">
+          <button class="wp-close absolute top-4 right-4 text-gray-400 hover:text-purple-600 z-10"><i data-lucide="x" class="w-6 h-6"></i></button>
+          <img src="assets/whitepaper-${page}.png" class="w-full rounded-xl mb-4 max-h-[70vh] object-contain" alt="白皮书第${page}页"/>
+          <div class="flex space-x-4">
+            ${page === 1 ? '<button class="wp-next bg-purple-900 text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-purple-800">下一页</button>' : '<button class="wp-close bg-purple-900 text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-purple-800">关闭</button>'}
+          </div>
+          <div class="text-[10px] text-gray-400 mt-2">${page}/2</div>
+        </div>`;
+      if (window.lucide) window.lucide.createIcons();
+      modal.querySelectorAll(".wp-close, .wp-overlay").forEach(b => b.onclick = () => root.removeChild(modal));
+      const nextBtn = modal.querySelector(".wp-next");
+      if (nextBtn) nextBtn.onclick = () => { page = 2; render(); };
+    };
+    render();
+    root.appendChild(modal);
+  }
 
   // 【新增】法律与隐私政策弹窗
   showLegalModal(onAgreeCallback) {
@@ -1617,4 +1709,6 @@ class App {
 } // <-- 【极其关键】：这是整个 App 类的结束括号！
 
 // 【极其关键】：程序的启动入口，没有这句网站就是一片空白
+window.addEventListener("DOMContentLoaded", () => new App());
+有这句网站就是一片空白
 window.addEventListener("DOMContentLoaded", () => new App());
