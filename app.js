@@ -161,6 +161,11 @@ class App {
     document.addEventListener("contextmenu", (e) => e.preventDefault());
     await this.loadPosts();
     this.renderFeed("latest");
+
+    // 【需求4】登录后弹白皮书（方法内部有 sessionStorage 防重复）
+    if (this.currentUser) {
+      this.showWhitepaperModal();
+    }
   }
 
   async checkUser() {
@@ -1485,6 +1490,36 @@ class App {
         };
       }
 
+      // 【需求2修复】从数据库重新计算并同步 like_count / dislike_count 的辅助函数
+      const refreshCounts = async (postObj) => {
+        // 计算赞总数：所有非"踩"类型的 interactions 的 weight 之和
+        const { data: likeRows } = await supabase
+          .from("interactions")
+          .select("weight")
+          .eq("content_id", postObj.id)
+          .neq("interaction_type", "踩");
+        const newLikes = (likeRows || []).reduce((sum, r) => sum + (r.weight || 1), 0);
+
+        // 计算踩总数
+        const { data: dislikeRows } = await supabase
+          .from("interactions")
+          .select("weight")
+          .eq("content_id", postObj.id)
+          .eq("interaction_type", "踩");
+        const newDislikes = (dislikeRows || []).reduce((sum, r) => sum + (r.weight || 1), 0);
+
+        // 更新 contents 表
+        await supabase.from("contents").update({ like_count: newLikes, dislike_count: newDislikes }).eq("id", postObj.id);
+
+        // 同步本地内存 + UI
+        postObj.likes = newLikes;
+        postObj.dislikes = newDislikes;
+        const likeEl = document.getElementById(`emotion-${postObj.id}`);
+        if (likeEl) likeEl.querySelector("span").innerText = newLikes;
+        const dkEl = document.getElementById(`dislike-${postObj.id}`);
+        if (dkEl) dkEl.querySelector("span").innerText = newDislikes;
+      };
+
       const el = document.getElementById(`emotion-${post.id}`);
       if (el) {
         EmotionButton.init(el, post, async (action) => {
@@ -1493,7 +1528,6 @@ class App {
           const dbAction = ACTION_MAP[action] || "点赞";
           const weights = this.getInteractionWeights();
 
-          // 【需求2重构】点赞/踩互斥机制
           // 查询当前用户对此帖的所有互动
           const { data: allInteractions } = await supabase
             .from("interactions")
@@ -1504,40 +1538,36 @@ class App {
           const existing = (allInteractions || []).find(i => i.interaction_type === dbAction);
 
           if (dbAction === "点赞") {
-            // 单击赞：最多1次，再次取消；与踩互斥
+            // 单击赞 toggle：有就删（取消），没有就加；与踩互斥
             if (existing) {
+              // 取消赞
               await supabase.from("interactions").delete().eq("id", existing.id);
-              post.likes = Math.max(0, post.likes - (existing.weight || 1));
               el.classList.remove("text-purple-600");
             } else {
-              // 检查是否已踩，若已踩则先取消踩
+              // 点赞：先取消踩（互斥）
               const existingDislike = (allInteractions || []).find(i => i.interaction_type === "踩");
               if (existingDislike) {
                 await supabase.from("interactions").delete().eq("id", existingDislike.id);
-                post.dislikes = Math.max(0, (post.dislikes || 0) - (existingDislike.weight || 1));
                 const dEl = document.getElementById(`dislike-${post.id}`);
-                if (dEl) { dEl.querySelector("span").innerText = post.dislikes; dEl.classList.remove("text-red-500"); }
-                await supabase.from("contents").update({ dislike_count: post.dislikes }).eq("id", post.id);
+                if (dEl) dEl.classList.remove("text-red-500");
               }
               await supabase.from("interactions").insert([{ user_id: this.currentUser.id, content_id: post.id, interaction_type: "点赞", weight: weights.like }]);
-              post.likes += weights.like;
               el.classList.add("text-purple-600");
             }
           } else {
-            // 双击特殊（递笔/抱抱/铭记/拔剑）：每种最多1次
+            // 双击特殊（递笔/抱抱/铭记/拔剑）toggle：每种最多1次
             if (existing) {
+              // 取消特殊互动
               await supabase.from("interactions").delete().eq("id", existing.id);
-              post.likes = Math.max(0, post.likes - (existing.weight || 1));
             } else {
               // 检查特殊互动总数（不含普通点赞和踩），最多2个特殊
               const specialCount = (allInteractions || []).filter(i => i.interaction_type !== "点赞" && i.interaction_type !== "踩").length;
               if (specialCount >= 2) { alert("您对此帖的特殊互动已达上限（2次）"); return; }
               await supabase.from("interactions").insert([{ user_id: this.currentUser.id, content_id: post.id, interaction_type: dbAction, weight: weights.like }]);
-              post.likes += weights.like;
             }
           }
-          el.querySelector("span").innerText = post.likes;
-          await supabase.from("contents").update({ like_count: post.likes }).eq("id", post.id);
+          // 核心修复：从数据库重新计算真实计数，不用本地 +=/-=
+          await refreshCounts(post);
         });
       }
 
@@ -1549,7 +1579,7 @@ class App {
           if (!this.currentUser) return alert("请先登录才能踩。");
           const weights = this.getInteractionWeights();
 
-          // 【需求2重构】踩：最多1次，与赞互斥
+          // 查询当前用户对此帖的所有互动
           const { data: allInteractions } = await supabase
             .from("interactions")
             .select("*")
@@ -1559,25 +1589,22 @@ class App {
           const existing = (allInteractions || []).find(i => i.interaction_type === "踩");
 
           if (existing) {
+            // 取消踩
             await supabase.from("interactions").delete().eq("id", existing.id);
-            post.dislikes = Math.max(0, (post.dislikes || 0) - (existing.weight || 1));
             dislikeEl.classList.remove("text-red-500");
           } else {
-            // 先取消普通点赞（互斥）
+            // 点踩：先取消普通点赞（互斥）
             const existingLike = (allInteractions || []).find(i => i.interaction_type === "点赞");
             if (existingLike) {
               await supabase.from("interactions").delete().eq("id", existingLike.id);
-              post.likes = Math.max(0, post.likes - (existingLike.weight || 1));
               const lEl = document.getElementById(`emotion-${post.id}`);
-              if (lEl) { lEl.querySelector("span").innerText = post.likes; lEl.classList.remove("text-purple-600"); }
-              await supabase.from("contents").update({ like_count: post.likes }).eq("id", post.id);
+              if (lEl) lEl.classList.remove("text-purple-600");
             }
             await supabase.from("interactions").insert([{ user_id: this.currentUser.id, content_id: post.id, interaction_type: "踩", weight: weights.dislike }]);
-            post.dislikes = (post.dislikes || 0) + weights.dislike;
             dislikeEl.classList.add("text-red-500");
           }
-          dislikeEl.querySelector("span").innerText = post.dislikes;
-          await supabase.from("contents").update({ dislike_count: post.dislikes }).eq("id", post.id);
+          // 核心修复：从数据库重新计算真实计数
+          await refreshCounts(post);
         };
       }
     });
