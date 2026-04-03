@@ -187,7 +187,7 @@ export const AuthModal = (supabase, onLoginSuccess) => {
       }
 
       root.removeChild(modal);
-      if (onLoginSuccess) onLoginSuccess();
+      if (onLoginSuccess) onLoginSuccess(true); // 传 true 表示经过了登录界面
     };
   };
 
