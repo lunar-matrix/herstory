@@ -42,6 +42,21 @@
         </div>
       </header>
 
+      <!-- 【需求3】移动端抽屉导航 -->
+      <div id="mobile-nav-drawer" class="hidden fixed inset-0 z-[60] md:hidden">
+        <div id="mobile-nav-overlay" class="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+        <div class="absolute top-0 right-0 w-64 h-full bg-white shadow-2xl p-8 flex flex-col space-y-4">
+          <button id="mobile-nav-close" class="absolute top-6 right-6 text-gray-400 hover:text-purple-600">
+            <i data-lucide="x" class="w-6 h-6"></i>
+          </button>
+          <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="原创文章">原创</a>
+          <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="转载图文">转载</a>
+          <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="史书记载">史书</a>
+          <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="辟谣专区">辟谣</a>
+          <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2" data-section="树洞与求助">树洞</a>
+        </div>
+      </div>
+
       <main class="mt-24 flex-grow px-6 max-w-7xl mx-auto w-full">
         <!-- 【已删除】原来的顶部合规提示 -->
 
@@ -67,7 +82,6 @@
         class="security-overlay opacity-5 pointer-events-none fixed inset-0 z-[100] flex items-center justify-center select-none rotate-12"
       >
         <span class="text-8xl font-bold text-purple-900">Making Herstory</span>
-        >
       </div>
 
       <!-- 【新增】底部固定合规提示栏（核心修改） -->
@@ -89,20 +103,6 @@
       </div>
     </div>
     <div id="modal-root"></div>
-    <!-- 必须写 type="module" -->
-    <script type="module" src="app.js"></script>
-  </body>
-</html>
-"mobile-nav-close" class="absolute top-6 right-6 text-gray-400 hover:text-purple-600">
-          <i data-lucide="✕" class="w-6 h-6"></i>
-        </button>
-        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="原创文章">原创</a>
-        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="转载图文">转载</a>
-        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="史书记载">史书</a>
-        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="辟谣专区">辟谣</a>
-        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2" data-section="树洞与求助">树洞</a>
-      </div>
-    </div>
     <!-- 必须写 type="module" -->
     <script type="module" src="app.js"></script>
   </body>
