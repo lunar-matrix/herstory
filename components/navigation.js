@@ -2,8 +2,8 @@ export const Navigation = (containerId) => {
   const sections = [
     { name: "原创", en: "Original" },
     { name: "转载", en: "Curated" },
-    { name: "史书", en: "Her-History" },
-    { name: "辟谣", en: "Fact-Check" },
+    { name: "史书", en: "Herstory" },
+    { name: "辟谣", en: "Debunk" },
     { name: "树洞", en: "Sanctuary" },
   ];
 
