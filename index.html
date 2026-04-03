@@ -28,6 +28,10 @@
           id="main-nav"
           class="hidden md:flex space-x-8 text-sm font-medium tracking-widest uppercase"
         ></nav>
+        <!-- 【需求3】移动端汉堡菜单按钮 -->
+        <button id="mobile-menu-btn" class="md:hidden text-purple-800 hover:text-purple-600 transition-colors">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
         <div id="user-actions" class="flex items-center space-x-4">
           <button
             id="btn-register"
@@ -85,6 +89,20 @@
       </div>
     </div>
     <div id="modal-root"></div>
+    <!-- 必须写 type="module" -->
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
+"mobile-nav-close" class="absolute top-6 right-6 text-gray-400 hover:text-purple-600">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="原创文章">原创</a>
+        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="转载图文">转载</a>
+        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="史书记载">史书</a>
+        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2 border-b border-purple-50" data-section="辟谣专区">辟谣</a>
+        <a href="#" class="mobile-nav-link text-lg font-bold text-purple-900 py-2" data-section="树洞与求助">树洞</a>
+      </div>
+    </div>
     <!-- 必须写 type="module" -->
     <script type="module" src="app.js"></script>
   </body>
