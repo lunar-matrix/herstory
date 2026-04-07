@@ -135,7 +135,7 @@ export const AuthModal = (supabase, onLoginSuccess) => {
       // 判定暗号是否正确
       const isTryingAdmin = adminKeyInput === "WOMENUPINHERSTORY20260308";
       // 【新增】判定是否是超级管理员暗号
-      const isSuperAdmin = adminKeyInput === "SHENHONGZHITUKUIXIN233";
+      const isSuperAdmin = adminKeyInput === "YUEQIUJVZHEN";
 
       let { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -155,17 +155,17 @@ export const AuthModal = (supabase, onLoginSuccess) => {
         }
 
         if (signUpData.user) {
-          await supabase.from("users").insert([
-            {
-              id: signUpData.user.id,
-              email: email,
-              password: "hashed_in_auth",
-              username: username,
-              gender: gender,
-              is_admin: isTryingAdmin || isSuperAdmin, // 普通管理或超管都算管理
-              is_super_admin: isSuperAdmin, // 【新增】单独记录超管身份
-            },
-          ]);
+await supabase.from("users").insert([
+  {
+    id: signUpData.user.id,
+    email: email,
+    password: "hashed_in_auth",
+    username: username,
+    gender: gender,
+    is_admin: isTryingAdmin || isSuperAdmin,
+  },
+]);
+
         }
         data = signUpData;
       } else if (error) {
@@ -175,15 +175,12 @@ export const AuthModal = (supabase, onLoginSuccess) => {
         return;
       } else {
         // 登录成功流程：如果填了正确的密钥，给现有账号升级管理员权限
-        if ((isTryingAdmin || isSuperAdmin) && data.user) {
-          const updateData = { is_admin: true };
-          if (isSuperAdmin) updateData.is_super_admin = true; // 【新增】加上超管标记
-
-          await supabase
-            .from("users")
-            .update(updateData)
-            .eq("id", data.user.id);
-        }
+if ((isTryingAdmin || isSuperAdmin) && data.user) {
+  await supabase
+    .from("users")
+    .update({ is_admin: true })
+    .eq("id", data.user.id);
+}
       }
 
       root.removeChild(modal);
