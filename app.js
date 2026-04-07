@@ -168,7 +168,7 @@ class App {
   }
 
   async checkUser() {
-    const {
+    let {
       data: { user },
     } = await supabase.auth.getUser();
     const actionsContainer = document.getElementById("user-actions");
@@ -179,12 +179,17 @@ if (user) {
     .select("*")
     .eq("id", user.id)
     .single();
-  if (!dbUser) {
-    // 安全防护：auth里有记录但users表里没有，强制退出防止崩溃
+if (!dbUser) {
     await supabase.auth.signOut();
-    user = null;
-  }
-  if (dbUser) {
+    actionsContainer.innerHTML = `<button id="btn-register" class="text-xs border border-purple-300 px-6 py-2 rounded-full hover:bg-purple-50 text-purple-900 font-bold tracking-widest transition-all">加入 Women</button>`;
+    document.getElementById("btn-register").onclick = () => {
+        this.showLegalModal(() => {
+            AuthModal(supabase, () => window.location.reload()).show();
+        });
+    };
+    return;
+}
+if (dbUser) {
     this.currentUser = {
           id: dbUser.id,
           name: dbUser.username,
@@ -870,25 +875,31 @@ if (user) {
     modal.querySelector(".detail-overlay").onclick = () =>
       root.removeChild(modal);
     // === 绑定删除评论的点击事件 ===
-    modal.querySelectorAll(".delete-comment-btn").forEach((btn) => {
-      btn.onclick = async (e) => {
+modal.querySelectorAll(".delete-comment-btn").forEach((btn) => {
+    btn.onclick = async (e) => {
+        e.stopPropagation();
         if (!confirm("确定要永久删除这条回声吗？")) return;
-        const cid = e.target.getAttribute("data-cid");
-        e.target.innerText = "删除中...";
+        const cid = btn.getAttribute("data-cid");
+        if (!cid) { alert("无法获取评论ID，请刷新后重试"); return; }
+        btn.innerText = "删除中...";
+        btn.disabled = true;
+
 
         const { error } = await supabase
-          .from("comments")
-          .delete()
-          .eq("id", cid);
+            .from("comments")
+            .delete()
+            .eq("id", cid);
         if (!error) {
-          root.removeChild(modal); // 关闭当前详情弹窗
-          this.showPostDetail(post); // 重新打开（实现无缝刷新评论区）
+            root.removeChild(modal);
+            this.showPostDetail(post);
         } else {
-          alert("删除评论失败：" + error.message);
-          e.target.innerText = "删除评论";
+            alert("删除评论失败：" + error.message);
+            btn.innerText = "删除评论";
+            btn.disabled = false;
         }
-      };
-    });
+    };
+});
+
     // === 删除评论事件结束 ===
 
     // 绑定审核按钮事件
@@ -1474,6 +1485,7 @@ if (user) {
     if (window.lucide) window.lucide.createIcons();
 
     sortedPosts.forEach((post) => {
+      // 卡片点击 → 打开详情
       const card = document.querySelector(`article[data-post-id="${post.id}"]`);
       if (card) {
         card.onclick = (e) => {
@@ -1488,38 +1500,44 @@ if (user) {
       }
 
 
-      // 从数据库重新查询真实计数
+      // 从数据库重新查询真实计数并更新 UI
       const refreshCounts = async (postObj) => {
-        const { count: likeCount } = await supabase
-          .from("interactions")
-          .select("*", { count: "exact", head: true })
-          .eq("content_id", postObj.id)
-          .eq("interaction_type", "点赞");
+        try {
+          const { count: likeCount } = await supabase
+            .from("interactions")
+            .select("*", { count: "exact", head: true })
+            .eq("content_id", postObj.id)
+            .eq("interaction_type", "点赞");
 
 
-        const { count: dislikeCount } = await supabase
-          .from("interactions")
-          .select("*", { count: "exact", head: true })
-          .eq("content_id", postObj.id)
-          .eq("interaction_type", "踩");
+          const { count: dislikeCount } = await supabase
+            .from("interactions")
+            .select("*", { count: "exact", head: true })
+            .eq("content_id", postObj.id)
+            .eq("interaction_type", "踩");
 
 
-        const newLikes = likeCount || 0;
-        const newDislikes = dislikeCount || 0;
+          const newLikes = likeCount || 0;
+          const newDislikes = dislikeCount || 0;
 
 
-        await supabase
-          .from("contents")
-          .update({ like_count: newLikes, dislike_count: newDislikes })
-          .eq("id", postObj.id);
+          await supabase
+            .from("contents")
+            .update({ like_count: newLikes, dislike_count: newDislikes })
+            .eq("id", postObj.id);
 
 
-        postObj.likes = newLikes;
-        postObj.dislikes = newDislikes;
-        const likeSpan = document.querySelector(`#emotion-${postObj.id} span`);
-        if (likeSpan) likeSpan.innerText = newLikes;
-        const dislikeSpan = document.querySelector(`#dislike-${postObj.id} span`);
-        if (dislikeSpan) dislikeSpan.innerText = newDislikes;
+          postObj.likes = newLikes;
+          postObj.dislikes = newDislikes;
+
+
+          const likeSpan = document.querySelector(`#emotion-${postObj.id} span`);
+          if (likeSpan) likeSpan.innerText = newLikes;
+          const dislikeSpan = document.querySelector(`#dislike-${postObj.id} span`);
+          if (dislikeSpan) dislikeSpan.innerText = newDislikes;
+        } catch (err) {
+          console.error("刷新计数失败:", err);
+        }
       };
 
 
@@ -1534,36 +1552,41 @@ if (user) {
           if (!this.currentUser) return alert("请先登录才能共鸣。");
           likeProcessing = true;
           try {
-            const { data: existing } = await supabase
+            // 查询：我是否已经赞过这个帖子？
+            const { data: existingRows } = await supabase
               .from("interactions")
               .select("id")
               .eq("user_id", this.currentUser.id)
               .eq("content_id", post.id)
-              .eq("interaction_type", "点赞")
-              .maybeSingle();
+              .eq("interaction_type", "点赞");
+
+
+            const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
 
 
             if (existing) {
               // 已经赞过 → 取消赞
-              await supabase.from("interactions").delete().eq("id", existing.id);
+              await supabase.from("interactions").delete()
+                .eq("user_id", this.currentUser.id)
+                .eq("content_id", post.id)
+                .eq("interaction_type", "点赞");
             } else {
               // 没赞过 → 先取消踩（互斥），再加赞
-              await supabase
-                .from("interactions")
-                .delete()
+              await supabase.from("interactions").delete()
                 .eq("user_id", this.currentUser.id)
                 .eq("content_id", post.id)
                 .eq("interaction_type", "踩");
-              await supabase.from("interactions").insert([
-                {
-                  user_id: this.currentUser.id,
-                  content_id: post.id,
-                  interaction_type: "点赞",
-                  weight: 1,
-                },
-              ]);
+              await supabase.from("interactions").insert([{
+                user_id: this.currentUser.id,
+                content_id: post.id,
+                interaction_type: "点赞",
+                weight: 1,
+              }]);
             }
             await refreshCounts(post);
+          } catch (err) {
+            console.error("点赞操作失败:", err);
+            alert("点赞操作失败：" + err.message);
           } finally {
             likeProcessing = false;
           }
@@ -1582,36 +1605,41 @@ if (user) {
           if (!this.currentUser) return alert("请先登录才能踩。");
           dislikeProcessing = true;
           try {
-            const { data: existing } = await supabase
+            // 查询：我是否已经踩过这个帖子？
+            const { data: existingRows } = await supabase
               .from("interactions")
               .select("id")
               .eq("user_id", this.currentUser.id)
               .eq("content_id", post.id)
-              .eq("interaction_type", "踩")
-              .maybeSingle();
+              .eq("interaction_type", "踩");
+
+
+            const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
 
 
             if (existing) {
               // 已经踩过 → 取消踩
-              await supabase.from("interactions").delete().eq("id", existing.id);
+              await supabase.from("interactions").delete()
+                .eq("user_id", this.currentUser.id)
+                .eq("content_id", post.id)
+                .eq("interaction_type", "踩");
             } else {
               // 没踩过 → 先取消赞（互斥），再加踩
-              await supabase
-                .from("interactions")
-                .delete()
+              await supabase.from("interactions").delete()
                 .eq("user_id", this.currentUser.id)
                 .eq("content_id", post.id)
                 .eq("interaction_type", "点赞");
-              await supabase.from("interactions").insert([
-                {
-                  user_id: this.currentUser.id,
-                  content_id: post.id,
-                  interaction_type: "踩",
-                  weight: 1,
-                },
-              ]);
+              await supabase.from("interactions").insert([{
+                user_id: this.currentUser.id,
+                content_id: post.id,
+                interaction_type: "踩",
+                weight: 1,
+              }]);
             }
             await refreshCounts(post);
+          } catch (err) {
+            console.error("点踩操作失败:", err);
+            alert("点踩操作失败：" + err.message);
           } finally {
             dislikeProcessing = false;
           }
