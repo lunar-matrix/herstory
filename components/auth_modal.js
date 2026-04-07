@@ -154,20 +154,27 @@ export const AuthModal = (supabase, onLoginSuccess) => {
           return;
         }
 
-        if (signUpData.user) {
-await supabase.from("users").insert([
-  {
-    id: signUpData.user.id,
-    email: email,
-    password: "hashed_in_auth",
-    username: username,
-    gender: gender,
-    is_admin: isTryingAdmin || isSuperAdmin,
-  },
-]);
+if (signUpData.user) {
+    const { error: insertError } = await supabase.from("users").insert([
+        {
+            id: signUpData.user.id,
+            email: email,
+            password: "hashed_in_auth",
+            username: username,
+            gender: gender,
+            is_admin: isTryingAdmin || isSuperAdmin,
+        },
+    ]);
+    if (insertError) {
+        alert("注册信息写入失败：" + insertError.message + "\n请将此错误截图发给开发者。");
+        await supabase.auth.signOut();
+        submitBtn.innerHTML = "觉醒 AWAKEN / 登录 LOGIN";
+        submitBtn.classList.remove("opacity-70");
+        return;
+    }
+}
+data = signUpData;
 
-        }
-        data = signUpData;
       } else if (error) {
         alert("登录错误：" + error.message);
         submitBtn.innerHTML = "觉醒 AWAKEN / 登录 LOGIN";
