@@ -172,8 +172,18 @@ if (signUpData.user) {
         submitBtn.classList.remove("opacity-70");
         return;
     }
+
+    // 新增：注册并写入信息后，自动执行一次登录以确保获得完整会话
+    const { data: signInData, error: autoLoginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+    });
+    if (!autoLoginError && signInData) {
+        data = signInData;
+    } else {
+        data = signUpData;
+    }
 }
-data = signUpData;
 
       } else if (error) {
         alert("登录错误：" + error.message);
