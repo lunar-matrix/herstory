@@ -227,7 +227,10 @@ if (dbUser) {
         await supabase.auth.signOut();
         window.location.reload();
       };
-      document.getElementById("btn-post").onclick = () => this.showPostModal();
+      document.getElementById("btn-post").onclick = () => {
+        if (this.isBanned()) return;
+        this.showPostModal();
+      };
 
       // --------------------------
       // 👇 新增的代码（精准插入位置）👇
@@ -423,15 +426,18 @@ if (dbUser) {
                                   u.id
                                 }</div>
                             </td>
-                            <td class="py-4 text-sm text-gray-700">${
-                              u.level ? u.level.replace(/Lv[0-9]/, "") : ""
-                            } Lv${
-                          u.level
-                            ? parseInt(u.level.replace(/[^0-9]/g, "")) || 1
-                            : 1
-                        }<br/><span class="text-xs text-purple-500 font-bold">${
-                          308 + (u.credit_score || 0)
-                        } 分</span></td>
+                            <td class="py-4 text-sm text-gray-700">
+                              ${
+                                u.gender === "男"
+                                  ? `<span class="font-bold text-gray-800">男</span>`
+                                  : `${u.level ? u.level.replace(/Lv[0-9]/g, "") : "女"} Lv${
+                                      parseInt((u.level || "").replace(/[^0-9]/g, "")) || 1
+                                    }`
+                              }
+                              <br/><span class="text-xs text-purple-500 font-bold">${
+                                308 + (u.credit_score || 0)
+                              } 分</span>
+                            </td>
                             <td class="py-4" id="status-${u.id}">${status}</td>
                             <td class="py-4 flex items-center space-x-2">
                                 <select class="text-xs border border-purple-200 rounded p-2 bg-white ban-select outline-none focus:border-purple-500" data-uid="${
@@ -1287,8 +1293,8 @@ modal.querySelectorAll(".delete-comment-btn").forEach((btn) => {
     modal.querySelector("#close-post").onclick = () => root.removeChild(modal);
 
     modal.querySelector("#post-form").onsubmit = async (e) => {
-      if (this.isBanned()) return;
       e.preventDefault();
+      if (this.isBanned()) return;
       const section = sectionSelect.value;
 
       if (section === "树洞与求助" && this.currentUser.gender !== "女") {
