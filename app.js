@@ -28,7 +28,6 @@ class App {
 
   async init() {
     Logo("logo-container");
-    Logo("logo-container");
     Navigation("main-nav");
     if (window.lucide) window.lucide.createIcons();
 
@@ -289,6 +288,7 @@ if (dbUser) {
           title: isAnon ? p.title.replace("[匿名] ", "") : p.title,
           excerpt: p.content,
           category: p.section,
+          source: p.source,
           likes: p.like_count || 0,
           dislikes: p.dislike_count || 0,
           muyu_clicks: 0,
